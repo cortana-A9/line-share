@@ -3,45 +3,137 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>分享報價</title>
+<title>報價分享</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
-  body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
-         font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color: #555; background: #fff; }
-  #msg { padding: 24px; text-align: center; line-height: 1.6; }
+  :root {
+    --bg: #F7F4EC; --card: #FFFFFF; --line: #E3DDCF; --text: #1F1F1F; --sub: #8A8478;
+    --gold: #8C6D00; --dark: #2B2620; --up: #C8322A; --down: #1E8A4C;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+         font-family: "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; }
+  main { max-width: 420px; margin: 0 auto; padding: 36px 24px 28px; min-height: 100vh; display: flex; flex-direction: column; }
+  .brand { font-size: 12px; letter-spacing: 2px; color: var(--gold); font-weight: 700; }
+  h1 { font-size: 26px; font-weight: 900; line-height: 1.35; margin: 6px 0 0; }
+  .card { margin-top: 22px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .name { font-size: 18px; font-weight: 900; }
+  .code { font-size: 12px; color: var(--sub); font-weight: 400; margin-left: 4px; }
+  .price { font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 600; }
+  .chg { font-family: "IBM Plex Mono", monospace; font-size: 13px; margin-top: 2px; text-align: right; }
+  .chart { display: block; width: 100%; margin-top: 12px; border-radius: 8px; background: #FFFFFF; }
+  .time { font-size: 12px; color: var(--sub); margin-top: 8px; }
+  .skeleton { height: 18px; border-radius: 6px; background: #EFEBE1; }
+  .actions { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .btn { display: block; width: 100%; font-family: inherit; text-align: center; text-decoration: none; border-radius: 14px; cursor: pointer; }
+  .btn-primary { font-size: 16px; font-weight: 700; color: #FFFFFF; background: var(--dark); border: none; padding: 15px 0; }
+  .btn-primary:disabled { opacity: .45; cursor: default; }
+  .btn-ghost { font-size: 14px; color: #5B5548; background: transparent; border: 1px solid #D9D0BA; padding: 12px 0; }
+  .status { margin-top: 14px; font-size: 13px; color: var(--sub); text-align: center; min-height: 20px; line-height: 1.6; }
+  .status.ok { color: var(--down); font-weight: 700; }
+  .status.err { color: var(--up); }
+  .note { margin-top: auto; padding-top: 24px; font-size: 11px; color: var(--sub); line-height: 1.7; }
+  .hidden { display: none; }
 </style>
 </head>
 <body>
-<div id="msg">準備分享中…</div>
+<main>
+  <div class="brand">CORTANA 報價分享</div>
+  <h1>把這張報價卡<br>傳給朋友</h1>
+
+  <section class="card" id="card" aria-live="polite">
+    <div class="skeleton" style="width: 60%"></div>
+    <div class="skeleton" style="width: 40%; margin-top: 10px"></div>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="share" disabled>選擇好友或群組</button>
+    <a class="btn btn-ghost hidden" id="bot" href="#">回到機器人</a>
+  </div>
+  <div class="status" id="status">準備中…</div>
+
+  <div class="note">分享出去的卡片，對方點選項會開啟機器人並帶入查詢指令。報價僅供參考。</div>
+</main>
+
 <script>
 // ====== 請填這兩個設定 ======
 // LIFF ID：LINE Developers → LINE Login 頻道 → LIFF 分頁裡的 LIFF ID（例：2001234567-AbCdEfGh）
 const LIFF_ID = "2012050026-AwE6i2z5";
-// Google 網路應用程式網址：試算表「參數設定」第 1 列那個 /exec 結尾的網址
+// Google 網路應用程式網址：試算表「參數設定」B1 那個 /exec 結尾的網址
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw4vX0CQgkk3sxNtzungCji07jBqmTQ370PN4H3SOkaUlYtIAjLuPeBjNKrv3I2xoGMCw/exec";
 // ===========================
+// 2026/10/16 v3：改成方案 A 米白金版面；顯示卡片預覽、「回到機器人」按鈕。
 
-const show = (t) => { document.getElementById("msg").textContent = t; };
+const $ = (id) => document.getElementById(id);
+const setStatus = (t, cls) => { const s = $("status"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); };
+const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderPreview(p) {
+  if (!p) { $("card").innerHTML = '<div class="name">報價卡已準備好</div>'; return; }
+  const color = esc(p.color || "#1F1F1F");
+  $("card").innerHTML =
+    '<div class="row"><span class="name">' + esc(p.title) + '<span class="code">' + esc(p.code) + '</span></span>' +
+    '<div><div class="price" style="color:' + color + '">' + esc(p.last) + '</div>' +
+    '<div class="chg" style="color:' + color + '">' + esc(p.chg) + '</div></div></div>' +
+    (p.chart ? '<img class="chart" src="' + esc(p.chart) + '" alt="' + esc(p.title) + ' 走勢圖">' : "") +
+    '<div class="time">更新 ' + esc(p.time) + '</div>';
+  if (p.bot) {
+    const a = $("bot");
+    a.href = "https://line.me/R/ti/p/" + encodeURIComponent(p.bot);
+    a.classList.remove("hidden");
+  }
+}
 
 (async () => {
   try {
     await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) {    // 電腦或一般瀏覽器要先登入 LINE
+      setStatus("正在前往 LINE 登入…");
+      liff.login({ redirectUri: location.href });
+      return;
+    }
     const id = new URLSearchParams(location.search).get("id");
-    if (!id) { show("缺少分享編號，請從報價卡上的「分享」按鈕進來"); return; }
+    if (!id) { setStatus("缺少分享編號，請從報價卡上的「分享」按鈕進來", "err"); return; }
 
     const res = await fetch(GAS_URL + "?share=" + encodeURIComponent(id));
     const data = await res.json();
-    if (!data.message) { show("這張報價卡已超過 6 小時，請重新查詢後再分享"); return; }
-
-    if (!liff.isApiAvailable("shareTargetPicker")) {
-      show("目前的 LINE 版本不支援分享，請更新 LINE 後再試");
+    if (!data.message) {
+      $("card").innerHTML = '<div class="name">這張報價卡已過期</div><div class="time">超過 6 小時了，請回機器人重新查詢後再分享</div>';
+      setStatus("");
       return;
     }
-    const result = await liff.shareTargetPicker([data.message]);
-    show(result ? "已分享" : "已取消分享");
-    setTimeout(() => { if (liff.isInClient()) { liff.closeWindow(); } }, 800);
-  } catch (e) {
-    show("分享失敗：" + (e && e.message ? e.message : e));
+    renderPreview(data.preview);
+
+    if (!liff.isApiAvailable("shareTargetPicker")) {
+      setStatus("目前無法使用 LINE 的分享功能（" + liff.getOS() + "／" + (liff.isInClient() ? "LINE App 內" : "外部瀏覽器") + "），請更新 LINE 或改用手機開啟", "err");
+      return;
+    }
+
+    const btn = $("share");
+    btn.disabled = false;
+    setStatus("");
+    const doShare = async () => {
+      btn.disabled = true;
+      try {
+        const result = await liff.shareTargetPicker([data.message]);
+        if (result) {
+          setStatus("已分享", "ok");
+          btn.textContent = "再分享給其他人";
+          setTimeout(() => { if (liff.isInClient()) { liff.closeWindow(); } }, 1200);
+        }
+        else { setStatus("已取消分享"); }
+      }
+      catch (e) { setStatus("分享失敗：" + (e && e.message ? e.message : e), "err"); }
+      btn.disabled = false;
+    };
+    btn.onclick = doShare;
+    if (liff.isInClient()) { doShare(); }    // 手機 LINE 裡直接打開選擇畫面
+  }
+  catch (e) {
+    setStatus("分享失敗：" + (e && e.message ? e.message : e), "err");
   }
 })();
 </script>
