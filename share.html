@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分享報價</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
+         font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color: #555; background: #fff; }
+  #msg { padding: 24px; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="msg">準備分享中…</div>
+<script>
+// ====== 請填這兩個設定 ======
+// LIFF ID：LINE Developers → LINE Login 頻道 → LIFF 分頁裡的 LIFF ID（例：2001234567-AbCdEfGh）
+const LIFF_ID = "請貼上 LIFF ID";
+// Google 網路應用程式網址：試算表「參數設定」第 1 列那個 /exec 結尾的網址
+const GAS_URL = "請貼上網路應用程式網址";
+// ===========================
+
+const show = (t) => { document.getElementById("msg").textContent = t; };
+
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    const id = new URLSearchParams(location.search).get("id");
+    if (!id) { show("缺少分享編號，請從報價卡上的「分享」按鈕進來"); return; }
+
+    const res = await fetch(GAS_URL + "?share=" + encodeURIComponent(id));
+    const data = await res.json();
+    if (!data.message) { show("這張報價卡已超過 6 小時，請重新查詢後再分享"); return; }
+
+    if (!liff.isApiAvailable("shareTargetPicker")) {
+      show("目前的 LINE 版本不支援分享，請更新 LINE 後再試");
+      return;
+    }
+    const result = await liff.shareTargetPicker([data.message]);
+    show(result ? "已分享" : "已取消分享");
+    setTimeout(() => { if (liff.isInClient()) { liff.closeWindow(); } }, 800);
+  } catch (e) {
+    show("分享失敗：" + (e && e.message ? e.message : e));
+  }
+})();
+</script>
+</body>
+</html>
