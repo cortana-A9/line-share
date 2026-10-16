@@ -62,10 +62,13 @@
 // ====== 請填這兩個設定 ======
 // LIFF ID：LINE Developers → LINE Login 頻道 → LIFF 分頁裡的 LIFF ID（例：2001234567-AbCdEfGh）
 const LIFF_ID = "2012050026-AwE6i2z5";
-// Google 網路應用程式網址：試算表「參數設定」B1 那個 /exec 結尾的網址
+// Google 網路應用程式網址：試算表「參數設定」B1 那個 /exec 結尾的網址（舊的分享連結用）
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw4vX0CQgkk3sxNtzungCji07jBqmTQ370PN4H3SOkaUlYtIAjLuPeBjNKrv3I2xoGMCw/exec";
+// Cloudflare Worker 網址（例：https://stock-quick.你的帳號.workers.dev）
+const WORKER_URL = "https://stock-quick.cortana081231.workers.dev";
 // ===========================
 // 2026/10/16 v3：改成方案 A 米白金版面；顯示卡片預覽、「回到機器人」按鈕。
+// 2026/10/16 v4：支援 Cloudflare Worker 版分享連結（?cmd=指令，開啟時產生最新報價卡）。
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (t, cls) => { const s = $("status"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); };
@@ -95,13 +98,16 @@ function renderPreview(p) {
       liff.login({ redirectUri: location.href });
       return;
     }
-    const id = new URLSearchParams(location.search).get("id");
-    if (!id) { setStatus("缺少分享編號，請從報價卡上的「分享」按鈕進來", "err"); return; }
+    const params = new URLSearchParams(location.search);
+    const cmd = params.get("cmd"), id = params.get("id");
+    if (!cmd && !id) { setStatus("缺少分享資訊，請從報價卡上的「分享」按鈕進來", "err"); return; }
 
-    const res = await fetch(GAS_URL + "?share=" + encodeURIComponent(id));
+    setStatus("產生報價卡中…");
+    const res = await fetch(cmd ? WORKER_URL + "?card=" + encodeURIComponent(cmd) : GAS_URL + "?share=" + encodeURIComponent(id));
     const data = await res.json();
     if (!data.message) {
-      $("card").innerHTML = '<div class="name">這張報價卡已過期</div><div class="time">超過 6 小時了，請回機器人重新查詢後再分享</div>';
+      $("card").innerHTML = cmd ? '<div class="name">暫時產生不出報價卡</div><div class="time">請稍後再試，或回機器人重新查詢</div>' :
+        '<div class="name">這張報價卡已過期</div><div class="time">超過 6 小時了，請回機器人重新查詢後再分享</div>';
       setStatus("");
       return;
     }
