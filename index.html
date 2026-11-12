@@ -78,7 +78,7 @@ function renderPreview(p) {
   if (!p) { $("card").innerHTML = '<div class="name">報價卡已準備好</div>'; return; }
   const color = esc(p.color || "#1F1F1F");
   $("card").innerHTML =
-    '<div class="row"><span class="name">' + esc(p.title) + '<span class="code">' + esc(p.code) + '</span></span>' +
+    '<div class="row"><span class="name">' + esc(p.title) + '<span class="code">' + esc(p.disp || p.code) + '</span></span>' +
     '<div><div class="price" style="color:' + color + '">' + esc(p.last) + '</div>' +
     '<div class="chg" style="color:' + color + '">' + esc(p.chg) + '</div></div></div>' +
     (p.chart ? '<img class="chart" src="' + esc(p.chart) + '" alt="' + esc(p.title) + ' 走勢圖">' : "") +
